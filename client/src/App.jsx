@@ -5,6 +5,7 @@ import Details from './layouts/Details'
 import Call from './Pages/Call'
 import { Route, Routes } from 'react-router-dom'
 import Auth from './Pages/Auth'
+import Protected from './Pages/Protected'
 
 const App = () => {
   return (
@@ -12,8 +13,13 @@ const App = () => {
           <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
 <Routes>
   <Route path='/' element={<Home/>}/>
-  <Route path='/call' element={<Call/>}/>
+  <Route path='/call' element={
+    <Protected>
+    <Call/>
+    </Protected>
+    }/>
     <Route path='/auth' element={<Auth/>}/>
+    <Route path='/protected' element={<Protected><Auth></Auth></Protected>}/>
 </Routes>
 </ThemeProvider>
     </div>

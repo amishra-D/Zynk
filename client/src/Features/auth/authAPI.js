@@ -1,60 +1,41 @@
-import axios from 'axios';
-export const signupAPI=async(data)=>{
-    try{
-const response = await axios.post(
-  'http://localhost:3000/api/auth/signup',
-  data,
-  {
-    withCredentials: true
-  }
-);
-return response.data;
-    }
-    catch(error){
-        console.log(error)
-        }
-}
+import api from '@/utils/axios';
 
-export const loginAPI=async(data)=>{
-    try{
-const response = await axios.post(
-  'http://localhost:3000/api/auth/login',
-  data,
-  {
-    withCredentials: true
+const config = {
+  withCredentials: true,
+};
+
+export const signupAPI = async (data) => {
+  try {
+    const response = await api.post('http://localhost:3000/api/auth/signup', data, config);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || { message: 'Signup failed' };
   }
-);
-return response.data;
-    }
-    catch(error){
-        console.log(error)
-        }
-}
-export const logoutAPI=async()=>{
-    try{
-const response = await axios.get(
-  'http://localhost:3000/api/auth/logout',
-  {
-    withCredentials: true
+};
+
+export const loginAPI = async (data) => {
+  try {
+    const response = await api.post('http://localhost:3000/api/auth/login', data, config);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || { message: 'Login failed' };
   }
-);
-return response.data;
-    }
-    catch(error){
-        console.log(error)
-        }
-}
-export const getmyuserAPI=async()=>{
-    try{
-const response = await axios.get(
-  'http://localhost:3000/api/profile/getmyuser',
-  {
-    withCredentials: true
+};
+
+export const logoutAPI = async () => {
+  try {
+    const response = await api.get('http://localhost:3000/api/auth/logout', config);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || { message: 'Logout failed' };
   }
-);
-return response.data;
-    }
-    catch(error){
-        console.log(error)
-        }
-}
+};
+
+export const getmyuserAPI = async () => {
+  try {
+    const response = await api.get('http://localhost:3000/api/profile/getmyuser', config);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || { message: 'Unauthorized' };
+  }
+};
