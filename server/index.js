@@ -47,7 +47,9 @@ io.on("connection", (socket) => {
     socket.to(roomId).emit("user-joined", { socketId: socket.id });
     console.log(`${socket.id} joined room ${roomId}`);
   });
-
+socket.on("chat-message", (msg) => {
+    io.to(msg.roomId).emit("chat-message", msg);
+  });
   socket.on("offer", ({ offer, to, roomId }) => {
     io.to(to).emit("offer", { offer, from: socket.id, roomId });
   });

@@ -1,20 +1,13 @@
-import React, { useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import React from 'react';
+import { useSelector } from 'react-redux';
 import { Link} from 'react-router-dom';
-import { Getmyuserthunk } from '@/Features/auth/authSlice';
 import { Loader2, AlertCircle } from 'lucide-react';
 
 const Protected = ({ children }) => {
-  const dispatch = useDispatch();
-  const { user, loading, error, initialized } = useSelector((state) => state.auth);
+    
+  const { user, loading, error } = useSelector((state) => state.auth);
 
-  useEffect(() => {
-    if (!initialized) {
-      dispatch(Getmyuserthunk());
-    }
-  }, [dispatch, initialized]);
-
-  if (!initialized || loading) {
+  if (loading) {
     return (
       <div className="w-full min-h-screen bg-background flex flex-col justify-center items-center gap-4 text-white">
         <Loader2 className="h-8 w-8 animate-spin" />

@@ -97,8 +97,6 @@ toast.error(err.message || "Login Failed")
             Forgot password?
           </a>
         </div>
-
-        {/* Submit Button */}
         <Button
           type="submit"
           className="w-full py-3 px-4 bg-[#D3500C] hover:bg-orange-700 text-white font-medium rounded-lg shadow-md transition duration-200"

@@ -1,13 +1,18 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { ThemeProvider } from './components/theme-provider'
 import Home from './Pages/Home'
-import Details from './layouts/Details'
 import Call from './Pages/Call'
 import { Route, Routes } from 'react-router-dom'
 import Auth from './Pages/Auth'
 import Protected from './Pages/Protected'
+import { useDispatch } from 'react-redux'
+import { Getmyuserthunk } from './Features/auth/authSlice'
 
 const App = () => {
+   const dispatch = useDispatch();
+  useEffect(() => {
+    dispatch(Getmyuserthunk());
+  }, [dispatch]);
   return (
     <div>
           <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">

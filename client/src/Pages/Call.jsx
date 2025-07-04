@@ -1,10 +1,10 @@
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { SocketContext } from '@/Socket/socketContext';
-import { Mic, MicOff, Video, VideoOff, PhoneOff, User } from 'lucide-react';
+import { Mic, MicOff, Video, VideoOff, PhoneOff, User,ScreenShare,MessageSquareText } from 'lucide-react';
 import { useSelector } from 'react-redux';
 import { Button } from '@/components/ui/button';
-
+import Chat from '../layouts/Chat'
 const Call = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -19,6 +19,7 @@ const Call = () => {
   const [remoteStream, setRemoteStream] = useState(null);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
+  const [isChatopen,setisChatopen]=useState(false)
   const [letter, setletter] = useState('Z');
   const peerRef = useRef(null);
   const cleanupComplete = useRef(false);
@@ -184,7 +185,10 @@ const Call = () => {
   };
 
   return (
-    <div className="flex flex-col items-center justify-between w-full h-screen bg-background text-white p-4 font-plus">
+    <div className="flex flex-col items-center justify-between w-full relative h-screen bg-background text-white p-4 font-plus">
+      {isChatopen &&(<div className='absolute left-2 top-2 z-50 flex items-center py-2'>
+        <Chat roomId={roomId}/>
+      </div>)}
       <div className="w-full text-center py-2">
         <h2 className="text-sm font-semibold">Room ID: {roomId}</h2>
         {!remoteStream && (
@@ -253,6 +257,12 @@ const Call = () => {
           title="End call"
         >
           <PhoneOff className="h-6 w-6" />
+        </Button>
+        <Button className='p-3 rounded-full bg-'>
+        <ScreenShare/>
+        </Button>
+        <Button className='p-3 rounded-full bg-' onClick={()=>setisChatopen(!isChatopen)}>
+        <MessageSquareText/>
         </Button>
       </div>
     </div>
