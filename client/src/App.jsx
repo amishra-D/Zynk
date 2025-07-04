@@ -5,14 +5,19 @@ import Call from './Pages/Call'
 import { Route, Routes } from 'react-router-dom'
 import Auth from './Pages/Auth'
 import Protected from './Pages/Protected'
-import { useDispatch } from 'react-redux'
-import { Getmyuserthunk } from './Features/auth/authSlice'
+import { useDispatch, useSelector } from 'react-redux';
+import { Getmyuserthunk } from './Features/auth/authSlice';
 
 const App = () => {
-   const dispatch = useDispatch();
-  useEffect(() => {
+ const user = useSelector(state => state.auth.user);
+const initialized = useSelector(state => state.auth.initialized);
+const dispatch=useDispatch();
+useEffect(() => {
+  if (!initialized) {
     dispatch(Getmyuserthunk());
-  }, [dispatch]);
+  }
+}, [dispatch, initialized]);
+
   return (
     <div>
           <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">

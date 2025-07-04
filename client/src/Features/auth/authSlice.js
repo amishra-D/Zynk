@@ -47,7 +47,6 @@ const AuthSlice = createSlice({
       .addCase(Loginthunk.pending, (state) => {
         state.loading = true;
         state.error = null;
-        state.user = null;
       })
       .addCase(Loginthunk.fulfilled, (state, action) => {
         state.loading = false;
@@ -81,17 +80,17 @@ const AuthSlice = createSlice({
         state.error = null;
       })
       .addCase(Getmyuserthunk.fulfilled, (state, action) => {
-        state.user = action.payload.user;
-        state.loading = false;
-        state.error = null;
-        state.initialized = true;
-      })
-      .addCase(Getmyuserthunk.rejected, (state, action) => {
-        state.user = null;
-        state.loading = false;
-        state.error = action.payload || 'Unauthorized';
-        state.initialized = true;
-      })
+  state.user = action.payload.user;
+  state.loading = false;
+  state.error = null;
+  state.initialized = true;
+})
+.addCase(Getmyuserthunk.rejected, (state, action) => {
+  state.user = null;
+  state.loading = false;
+  state.error = action.payload || 'Unauthorized';
+  state.initialized = true;
+})
 
       .addCase(Logoutthunk.fulfilled, (state) => {
         state.user = null;
