@@ -36,24 +36,36 @@ const Call = () => {
     console.log('=== Connection Debug Info ===');
     console.log('ICE Connection State:', peerRef.current.iceConnectionState);
     console.log('Signaling State:', peerRef.current.signalingState);
+    console.log('Connection State:', peerRef.current.connectionState);
     
     console.log('Local Tracks:');
     peerRef.current.getSenders().forEach(sender => {
-      console.log(`- ${sender.track?.kind} track:`, sender.track);
+      console.log(`- ${sender.track?.kind} track:`, {
+        id: sender.track?.id,
+        enabled: sender.track?.enabled,
+        readyState: sender.track?.readyState,
+        muted: sender.track?.muted
+      });
     });
     
     console.log('Remote Tracks:');
     peerRef.current.getReceivers().forEach(receiver => {
-      console.log(`- ${receiver.track?.kind} track:`, receiver.track);
+      console.log(`- ${receiver.track?.kind} track:`, {
+        id: receiver.track?.id,
+        enabled: receiver.track?.enabled,
+        readyState: receiver.track?.readyState,
+        muted: receiver.track?.muted
+      });
     });
     
-    console.log('Remote Stream:', remoteStream);
+    console.log('Remote Stream:', remoteStream?.id);
     if (remoteVideoRef.current) {
       console.log('Video Element:', {
         readyState: remoteVideoRef.current.readyState,
         videoWidth: remoteVideoRef.current.videoWidth,
         videoHeight: remoteVideoRef.current.videoHeight,
-        error: remoteVideoRef.current.error
+        error: remoteVideoRef.current.error,
+        srcObject: remoteVideoRef.current.srcObject
       });
     }
   };
@@ -116,7 +128,6 @@ const Call = () => {
       });
       peerRef.current = peerConnection;
 
-      // Enhanced connection state handling
       peerConnection.oniceconnectionstatechange = () => {
         const state = peerConnection.iceConnectionState;
         console.log('ICE connection state:', state);
@@ -124,7 +135,6 @@ const Call = () => {
         
         if (state === 'disconnected' || state === 'failed') {
           console.log('Connection failed or disconnected');
-          // Attempt to reconnect if disconnected unexpectedly
           if (state === 'disconnected' && !cleanupComplete.current) {
             console.log('Attempting to reconnect...');
             setTimeout(() => {
@@ -141,40 +151,40 @@ const Call = () => {
       };
 
       // Enhanced track event handler
-     peerConnection.ontrack = (event) => {
-  console.log('Received track event:', event);
-  if (event.streams && event.streams.length > 0) {
-    console.log('Remote stream received with tracks:', 
-      event.streams[0].getTracks().map(t => `${t.kind} (${t.readyState})`));
-    
-    // Create a new stream to avoid reference issues
-    const newStream = new MediaStream();
-    event.streams[0].getTracks().forEach(track => {
-      console.log(`Adding ${track.kind} track to new stream`);
-      newStream.addTrack(track);
-    });
-    
-    setRemoteStream(newStream);
-    
-    if (remoteVideoRef.current) {
-      console.log('Assigning stream to video element');
-      remoteVideoRef.current.srcObject = newStream;
-      
-      // Force play the video
-      const playPromise = remoteVideoRef.current.play();
-      
-      if (playPromise !== undefined) {
-        playPromise.catch(e => {
-          console.error('Video play failed:', e);
-          // Try again after a short delay
-          setTimeout(() => {
-            remoteVideoRef.current.play().catch(e => console.error('Retry failed:', e));
-          }, 500);
-        });
-      }
-    }
-  }
-};
+      peerConnection.ontrack = (event) => {
+        console.log('Received track event:', event);
+        if (event.streams && event.streams.length > 0) {
+          console.log('Remote stream received with tracks:', 
+            event.streams[0].getTracks().map(t => `${t.kind} (${t.readyState})`));
+          
+          // Create a new stream to avoid reference issues
+          const newStream = new MediaStream();
+          event.streams[0].getTracks().forEach(track => {
+            console.log(`Adding ${track.kind} track to new stream`);
+            newStream.addTrack(track);
+          });
+          
+          setRemoteStream(newStream);
+          
+          if (remoteVideoRef.current) {
+            console.log('Assigning stream to video element');
+            remoteVideoRef.current.srcObject = newStream;
+            
+            // Force play the video
+            const playPromise = remoteVideoRef.current.play();
+            
+            if (playPromise !== undefined) {
+              playPromise.catch(e => {
+                console.error('Video play failed:', e);
+                setTimeout(() => {
+                  remoteVideoRef.current.play().catch(e => console.error('Retry failed:', e));
+                }, 500);
+              });
+            }
+          }
+        }
+      };
+
       // Add local tracks with logging
       stream.getTracks().forEach((track) => {
         console.log(`Adding local ${track.kind} track to peer connection`);
@@ -285,9 +295,9 @@ const Call = () => {
         console.log('Initializing call for room:', roomId);
         const stream = await navigator.mediaDevices.getUserMedia({ 
           video: {
-  width: { ideal: 640 },
-  height: { ideal: 360 },
-  frameRate: { ideal: 30 }
+            width: { ideal: 640 },
+            height: { ideal: 360 },
+            frameRate: { ideal: 30 }
           }, 
           audio: true 
         });
@@ -349,18 +359,22 @@ const Call = () => {
   useEffect(() => {
     if (remoteStream) {
       const tracks = remoteStream.getTracks();
-      console.log('Remote stream tracks:', tracks);
+      console.log('Remote stream tracks:', tracks.map(t => `${t.kind} (${t.readyState})`));
+
+      const onTrackEnded = () => {
+        console.log('Remote track ended');
+        debugConnection();
+      };
+
       tracks.forEach(track => {
-        console.log(`Track ${track.kind}:`, {
-          enabled: track.enabled,
-          readyState: track.readyState,
-          muted: track.muted
-        });
-        
-        track.onended = () => {
-          console.log(`Remote ${track.kind} track ended`);
-        };
+        track.addEventListener('ended', onTrackEnded);
       });
+
+      return () => {
+        tracks.forEach(track => {
+          track.removeEventListener('ended', onTrackEnded);
+        });
+      };
     }
   }, [remoteStream]);
 
@@ -455,36 +469,36 @@ const Call = () => {
       </div>
 
       <div className="relative w-full h-full max-w-6xl mx-auto">
-  {remoteStream ? (
-    <div className="relative w-full h-full">
-      <video
-        ref={remoteVideoRef}
-        autoPlay
-        playsInline
-        muted={false}
-        className="w-full h-full object-cover rounded-lg bg-black"
-        onCanPlay={() => console.log('Remote video can play')}
-        onPlaying={() => console.log('Remote video started playing')}
-        onError={(e) => console.error('Remote video error:', e)}
-      />
-      {remoteVideoRef.current?.readyState < HTMLMediaElement.HAVE_ENOUGH_DATA && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-70 rounded-lg">
-          <div className="text-white text-center">
-            <p>Waiting for video stream...</p>
-            <p className="text-sm">Connection: {connectionStatus}</p>
-            <p className="text-xs">Tracks: {remoteStream?.getTracks().length || 0}</p>
+        {remoteStream ? (
+          <div className="relative w-full h-full">
+            <video
+              ref={remoteVideoRef}
+              autoPlay
+              playsInline
+              className="w-full h-full object-cover rounded-lg bg-black"
+              onCanPlay={() => console.log('Remote video can play')}
+              onPlaying={() => console.log('Remote video started playing')}
+              onError={(e) => console.error('Remote video error:', e)}
+            />
+            {remoteVideoRef.current?.readyState < HTMLMediaElement.HAVE_ENOUGH_DATA && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-70 rounded-lg">
+                <div className="text-white text-center">
+                  <p>Waiting for video stream...</p>
+                  <p className="text-sm">Connection: {connectionStatus}</p>
+                  <p className="text-xs">Tracks: {remoteStream?.getTracks().length || 0}</p>
+                </div>
+              </div>
+            )}
           </div>
-        </div>
-      )}
-    </div>
-  ) : (
-    <div className="w-full h-full bg-neutral-800 rounded-lg flex items-center justify-center">
-      <div className="text-2xl text-gray-400 flex items-center gap-2">
-        <VideoOff className="w-8 h-8" />
-        <span>No remote video available</span>
-      </div>
-    </div>
-  )}
+        ) : (
+          <div className="w-full h-full bg-neutral-800 rounded-lg flex items-center justify-center">
+            <div className="text-2xl text-gray-400 flex items-center gap-2">
+              <VideoOff className="w-8 h-8" />
+              <span>No remote video available</span>
+            </div>
+          </div>
+        )}
+
         <div className={`absolute bottom-4 right-4 ${isVideoOff ? 'bg-gray-700' : ''}`}>
           <video
             ref={localVideoRef}
