@@ -35,3 +35,14 @@ export const getmyuserAPI = async () => {
     throw error.response?.data || { message: 'Unauthorized' };
   }
 };
+export const updateuserAPI = async (data) => {
+  try {
+    const response = await api.put('/api/profile/updateuser', data, {
+      withCredentials: true,
+    });
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || { message: 'Update failed' };
+  }
+};
+

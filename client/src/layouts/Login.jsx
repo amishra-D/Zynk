@@ -42,7 +42,7 @@ toast.error(err.message || "Login Failed")
       <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
         <div className="space-y-4">
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-foreground mb-1">
+            <label htmlFor="email" className="block text-sm max-sm:text-xs font-medium text-foreground mb-1">
               Email
             </label>
             <Input
@@ -64,7 +64,7 @@ toast.error(err.message || "Login Failed")
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-foreground mb-1">
+            <label htmlFor="password" className="max-sm:text-xs block text-sm font-medium text-foreground mb-1">
               Password
             </label>
             <Input
@@ -86,14 +86,8 @@ toast.error(err.message || "Login Failed")
           </div>
         </div>
 
-        <div className="flex items-center justify-between">
-          <div className="flex items-center">
-            <input id="remember-me" name="remember-me" type="checkbox" />
-            <label htmlFor="remember-me" className="ml-2 block text-sm text-foreground">
-              Remember me
-            </label>
-          </div>
-          <a href="#" className="text-sm text-[#D3500C] hover:text-orange-700">
+        <div className="flex items-center justify-end">
+          <a href="#" className="text-sm max-sm:text-xs text-[#D3500C] hover:text-orange-700">
             Forgot password?
           </a>
         </div>
@@ -106,7 +100,7 @@ toast.error(err.message || "Login Failed")
       </form>
 
       <div className="mt-6 text-center">
-        <p className="text-sm text-foreground">
+        <p className="text-sm max-sm:text-xs text-foreground">
           Don't have an account?{' '}
           <span
             onClick={() => settype('signup')}

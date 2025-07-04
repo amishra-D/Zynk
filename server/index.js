@@ -7,7 +7,7 @@ const dbconnect=require('./config/dbconfig.js')
 const authroutes=require('./routes/Authroutes')
 const profileroutes=require('./routes/Profileroutes')
 const AuthMiddleware=require('./middlewares/Authmiddleware')
-
+const roomroutes=require('./routes/Roomroutes')
 const app=express();
 app.use(cors({ origin: process.env.CLIENT_URL,credentials: true, methods: ['GET', 'POST','PUT'] }));
 const server=http.createServer(app);
@@ -30,6 +30,7 @@ app.get('/',(req,res)=>{
 
 app.use('/api/auth',authroutes);
 app.use('/api/profile',AuthMiddleware,profileroutes);
+app.use('/api/room',AuthMiddleware,roomroutes);
 
 server.listen(port,()=>{
     console.log(`server is running on port ${port}`)

@@ -20,7 +20,7 @@ const signup = async (req, res) => {
     );
 
     const refreshToken = jwt.sign(
-      {email, role, username },
+      { email, role, username },
       process.env.REFRESH_SECRET_KEY,
       { expiresIn: '7d' }
     );
@@ -62,13 +62,13 @@ const login = async (req, res) => {
       return res.status(401).send({ message: 'Password incorrect' });
 
     const accessToken = jwt.sign(
-      {_id: user._id,email: user.email, role: user.role, username: user.username },
+      { _id: user._id, email: user.email, role: user.role, username: user.username },
       process.env.ACCESS_SECRET_KEY,
       { expiresIn: '15m' }
     );
 
     const refreshToken = jwt.sign(
-      {_id: user._id,email: user.email, role: user.role, username: user.username },
+      { _id: user._id, email: user.email, role: user.role, username: user.username },
       process.env.REFRESH_SECRET_KEY,
       { expiresIn: '7d' }
     );
@@ -98,14 +98,27 @@ const logout = (req, res) => {
   res.clearCookie('refreshToken');
   res.status(200).send({ message: 'Logged out' });
 }
-const getmyuser=async(req,res)=>{
-  try{
-const user=req.user;
-console.log(user)
-console.log(req.user)
-res.status(200).json({user});
-}catch(err){
-  res.status(401).json({message:'Error fetching user',error:err.message});
+const getmyuser = async (req, res) => {
+  try {
+ const newuser = await User.findById(req.user._id);
+  res.status(200).json({ user:newuser });
+  } catch (err) {
+    res.status(401).json({ message: 'Error fetching user', error: err.message });
+  }
 }
+const updateuser = async (req, res) => {
+  try {
+    const user = req.user;
+    const { username } = req.body;
+    const updatedUser = await User.findByIdAndUpdate(
+      user._id,
+      { $set: { username } },
+      { new: true }
+    );
+
+    res.status(200).json({ user: updatedUser });
+  } catch (err) {
+    res.status(401).json({ message: 'Error updating user', error: err.message });
+  }
 }
-module.exports = { login, signup, logout,getmyuser }
+module.exports = { login, signup, logout, getmyuser, updateuser }

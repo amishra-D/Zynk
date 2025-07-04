@@ -15,7 +15,6 @@ const Protected = ({ children }) => {
       </div>
     );
   }
-
   if (!user) {
     return (
       <div className="w-full min-h-screen bg-background flex flex-col justify-center items-center gap-4 text-white p-4 font-plus">

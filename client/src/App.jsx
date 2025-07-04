@@ -10,7 +10,6 @@ import { Getmyuserthunk } from './Features/auth/authSlice';
 import { useLocation } from 'react-router-dom';
 
 const App = () => {
-  const user = useSelector(state => state.auth.user);
   const initialized = useSelector(state => state.auth.initialized);
   const dispatch = useDispatch();
   const { pathname } = useLocation();

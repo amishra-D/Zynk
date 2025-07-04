@@ -5,7 +5,7 @@ import Signup from '@/layouts/Signup';
 const Auth = () => {
   const [type,settype]=useState('login')
   return (
-    <div className="w-full min-h-screen bg-gradient-to-br from-[#D3500C] to-[#FF8C42] flex items-center justify-center font-plus">
+    <div className="w-full min-h-screen bg-gradient-to-br from-[#D3500C] to-[#FF8C42] flex items-center justify-center font-plus md:px-2 sm:p-8 lg:px-4 px-4">
       <div className="w-full h-[90%] max-w-5xl bg-background rounded-xl shadow-2xl flex overflow-hidden border border-white/10">
 
         <div className="w-1/2 h-full hidden md:flex relative">
@@ -25,8 +25,8 @@ const Auth = () => {
         <div className="w-full md:w-1/2 h-full flex flex-col items-center justify-center px-10 py-12 bg-background">
           <div className="w-full max-w-md">
             <div className="text-center mb-8">
-              <h2 className="text-3xl font-bold text-foreground mb-2">{type=='login' ? 'Welcome Back':'Welcome to Zynk'}</h2>
-              <p className="text-foreground">{type=='login' ? 'Please enter your details to Login':'Please enter your details to Sign up'}</p>
+              <h2 className="text-3xl max-sm:text-2xl font-bold text-foreground mb-2">{type=='login' ? 'Welcome Back':'Welcome to Zynk'}</h2>
+              <p className=" max-sm:text-xs text-foreground">{type=='login' ? 'Please enter your details to Login':'Please enter your details to Sign up'}</p>
             </div>
             {type=='login'
             ?<Login settype={settype}/>

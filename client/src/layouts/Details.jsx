@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { SocketContext } from '@/Socket/socketContext';
 import { useDispatch, useSelector } from 'react-redux';
 import { Getmyuserthunk } from '@/Features/auth/authSlice';
+import { customAlphabet } from 'nanoid';
 
 const Details = () => {
   const navigate = useNavigate();
@@ -15,18 +16,40 @@ const Details = () => {
   const loading = useSelector((state) => state.auth.loading);
 
   const [roomId, setRoomId] = useState('');
+  
+  const generateSegment = customAlphabet(
+    '23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz',
+    3
+  );
 
-  // Fetch user on mount
+  const generateCode = () => {
+    return `${generateSegment()}-${generateSegment()}-${generateSegment()}`;
+  };
+
   useEffect(() => {
     dispatch(Getmyuserthunk());
   }, [dispatch]);
 
-  // Debug: log user after load
-  useEffect(() => {
-    if (user) {
-      console.log("User loaded:", user);
+  const handleCreateRoom = () => {
+    const newRoomId = generateCode();
+    setRoomId(newRoomId);
+    
+    if (!user?.username) {
+      console.log("User not loaded");
+      return;
     }
-  }, [user]);
+
+    try {
+      socket.emit('join-room', {
+        roomId: newRoomId,
+        username: user.username,
+        userId: user._id,
+      });
+      navigate('/call', { state: { roomId: newRoomId } });
+    } catch (error) {
+      console.error('Error creating room:', error);
+    }
+  };
 
   const handleJoinRoom = () => {
     if (!roomId.trim() || !user?.username) {
@@ -40,7 +63,6 @@ const Details = () => {
         username: user.username,
         userId: user._id,
       });
-      console.log("Navigating to /call");
       navigate('/call', { state: { roomId } });
     } catch (error) {
       console.error('Error joining room:', error);
@@ -83,6 +105,13 @@ const Details = () => {
           className="w-full sm:w-auto py-3 px-6 text-md transition-transform hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
         >
           Join Call
+        </Button>
+        <Button
+          onClick={handleCreateRoom}
+          disabled={loading || !user?.username}
+          className="w-full sm:w-auto py-3 px-6 text-md transition-transform hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
+        >
+          Create Call
         </Button>
       </div>
     </div>

@@ -5,7 +5,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { SocketContext } from "@/Socket/socketContext";
 import { useSelector } from "react-redux";
 
-export default function InCallChat({ roomId }) {
+export default function InCallChat({ roomId, isChatOpen }) {
   const socket = useContext(SocketContext);
   const { user } = useSelector((state) => state.auth);
   const [message, setMessage] = useState("");
@@ -42,20 +42,19 @@ export default function InCallChat({ roomId }) {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
   const sendMessage = () => {
-    if (message.trim() === "") return;
+  if (message.trim() === "") return;
 
-    const msgData = {
-      roomId,
-      sender: user?.username,
-      text: message,
-      timestamp: new Date().toISOString(),
-    };
-
-    console.log("Sending message:", msgData);
-    socket.emit("chat-message", msgData);
-    setMessages((prev) => [...prev, msgData]);
-    setMessage("");
+  const msgData = {
+    roomId,
+    sender: user?.username,
+    text: message,
+    timestamp: new Date().toISOString(),
   };
+
+  console.log("Sending message:", msgData);
+  socket.emit("chat-message", msgData);
+  setMessage("");
+};
 
   return (
     <div className="w-full flex flex-col border-l bg-muted rounded-xl shadow-inner h-screen">
@@ -66,11 +65,10 @@ export default function InCallChat({ roomId }) {
           {messages.map((msg, i) => (
             <div
               key={i}
-              className={`p-2 rounded-lg max-w-xs text-sm ${
-                msg.sender === user?.username
+              className={`p-2 rounded-lg max-w-xs text-sm ${msg.sender === user?.username
                   ? "bg-orange-500 text-white self-end ml-auto"
                   : "bg-white text-black self-start"
-              }`}
+                }`}
             >
               <p className="font-semibold">{msg.sender}</p>
               <p>{msg.text}</p>

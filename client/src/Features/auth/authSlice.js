@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import { getmyuserAPI, loginAPI, logoutAPI, signupAPI } from "./authAPI";
+import { getmyuserAPI, loginAPI, logoutAPI, signupAPI, updateuserAPI } from "./authAPI";
 
 export const Loginthunk = createAsyncThunk('/auth/login', async (data, thunkAPI) => {
   try {
@@ -30,6 +30,13 @@ export const Getmyuserthunk = createAsyncThunk('/auth/getmyuser', async (_, thun
     return await getmyuserAPI();
   } catch (err) {
     return thunkAPI.rejectWithValue(err.message || 'Unauthorized');
+  }
+});
+export const Updateuserthunk = createAsyncThunk('/profile/updateuser', async (data, thunkAPI) => {
+  try {
+    return await updateuserAPI(data);
+  } catch (err) {
+    return thunkAPI.rejectWithValue(err.message || 'Not updated');
   }
 });
 
@@ -80,17 +87,33 @@ const AuthSlice = createSlice({
         state.error = null;
       })
       .addCase(Getmyuserthunk.fulfilled, (state, action) => {
-  state.user = action.payload.user;
+        state.user = action.payload.user;
+        state.loading = false;
+        state.error = null;
+        state.initialized = true;
+      })
+      .addCase(Getmyuserthunk.rejected, (state, action) => {
+        state.user = null;
+        state.loading = false;
+        state.error = action.payload || 'Unauthorized';
+        state.initialized = true;
+      })
+      .addCase(Updateuserthunk.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(Updateuserthunk.fulfilled, (state, action) => {
+        state.user = action.payload;
+        state.loading = false;
+        state.error = null;
+        state.initialized = true;
+      })
+     .addCase(Updateuserthunk.rejected, (state, action) => {
   state.loading = false;
-  state.error = null;
+  state.error = action.payload.user || 'Not updated';
   state.initialized = true;
 })
-.addCase(Getmyuserthunk.rejected, (state, action) => {
-  state.user = null;
-  state.loading = false;
-  state.error = action.payload || 'Unauthorized';
-  state.initialized = true;
-})
+
 
       .addCase(Logoutthunk.fulfilled, (state) => {
         state.user = null;

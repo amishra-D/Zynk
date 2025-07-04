@@ -12,18 +12,27 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { User } from "lucide-react";
-import { Logoutthunk } from "@/Features/auth/authSlice";
+import { Logoutthunk, Updateuserthunk } from "@/Features/auth/authSlice";
 import { useDispatch, useSelector } from "react-redux";
+import { useEffect, useState } from "react";
 
 export function Profile() {
   const dispatch = useDispatch();
   const user = useSelector((state) => state.auth.user);
   const letter = user?.username?.[0]?.toUpperCase() || "Z";
+const [newusername, setnewusername] = useState(user?.username || "");
+useEffect(() => {
+  if (user?.username) {
+    setnewusername(user.username);
+  }
+}, [user?.username]);
 
   const handleLogout = () => {
     dispatch(Logoutthunk());
   };
-
+const handleupdate=(data)=>{
+  dispatch(Updateuserthunk(data))
+}
   return (
     <Sheet>
       <SheetTrigger asChild>
@@ -38,7 +47,7 @@ export function Profile() {
           </div>
           <SheetTitle className="text-lg">{user?.username || "Anonymous"}</SheetTitle>
           <SheetDescription>
-            Make changes to your profile here. Click save when you&apos;re done.
+  Welcome to your profile. Make changes and manage your identity with ease.
           </SheetDescription>
           <Button variant="destructive" onClick={handleLogout}>
             Log out
@@ -47,11 +56,11 @@ export function Profile() {
         <div className="grid flex-1 auto-rows-min gap-6 px-4 mt-4">
           <div className="grid gap-3">
             <Label htmlFor="sheet-demo-username">Username</Label>
-            <Input id="sheet-demo-username" defaultValue={user?.username || ""} />
+            <Input id="sheet-demo-username" value={newusername} onChange={(e)=>setnewusername(e.target.value)} />
           </div>
         </div>
         <SheetFooter className="mt-4">
-          <Button type="submit">Save changes</Button>
+          <Button type="submit" onClick={()=>handleupdate({username:newusername})}>Save changes</Button>
           <SheetClose asChild>
             <Button variant="outline">Close</Button>
           </SheetClose>
