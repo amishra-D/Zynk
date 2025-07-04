@@ -7,17 +7,19 @@ import Auth from './Pages/Auth'
 import Protected from './Pages/Protected'
 import { useDispatch, useSelector } from 'react-redux';
 import { Getmyuserthunk } from './Features/auth/authSlice';
+import { useLocation } from 'react-router-dom';
 
 const App = () => {
- const user = useSelector(state => state.auth.user);
-const initialized = useSelector(state => state.auth.initialized);
-const dispatch=useDispatch();
-useEffect(() => {
-  if (!initialized) {
-    dispatch(Getmyuserthunk());
-  }
-}, [dispatch, initialized]);
+  const user = useSelector(state => state.auth.user);
+  const initialized = useSelector(state => state.auth.initialized);
+  const dispatch = useDispatch();
+  const { pathname } = useLocation();
 
+  useEffect(() => {
+    if (!initialized && pathname !== "/auth") {
+      dispatch(Getmyuserthunk());
+    }
+  }, [dispatch, initialized, pathname]);
   return (
     <div>
           <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
