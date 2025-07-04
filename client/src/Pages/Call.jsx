@@ -1,10 +1,11 @@
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { SocketContext } from '@/Socket/socketContext';
-import { Mic, MicOff, Video, VideoOff, PhoneOff, User,ScreenShare,MessageSquareText } from 'lucide-react';
+import { Mic, MicOff, Video, VideoOff, PhoneOff, User, ScreenShare, MessageSquareText } from 'lucide-react';
 import { useSelector } from 'react-redux';
 import { Button } from '@/components/ui/button';
-import Chat from '../layouts/Chat'
+import Chat from '../layouts/Chat';
+
 const Call = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -19,26 +20,48 @@ const Call = () => {
   const [remoteStream, setRemoteStream] = useState(null);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
-  const [isChatopen,setisChatopen]=useState(false)
-  const [letter, setletter] = useState('Z');
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [letter, setLetter] = useState('Z');
+  const [connectionStatus, setConnectionStatus] = useState('Connecting...');
   const peerRef = useRef(null);
   const cleanupComplete = useRef(false);
+
+  const logPeerConnectionState = () => {
+    if (!peerRef.current) {
+      console.log('No peer connection');
+      return;
+    }
+    console.log('ICE Connection State:', peerRef.current.iceConnectionState);
+    console.log('ICE Gathering State:', peerRef.current.iceGatheringState);
+    console.log('Signaling State:', peerRef.current.signalingState);
+    console.log('Connection State:', peerRef.current.connectionState);
+  };
 
   const cleanupResources = () => {
     if (cleanupComplete.current) return;
     cleanupComplete.current = true;
 
+    console.log('Cleaning up resources...');
+    
     if (localStream) {
-      localStream.getTracks().forEach(track => track.stop());
+      console.log('Stopping local stream tracks');
+      localStream.getTracks().forEach(track => {
+        track.stop();
+        console.log(`Stopped track: ${track.kind}`);
+      });
       setLocalStream(null);
     }
 
     if (peerRef.current) {
+      console.log('Closing peer connection');
+      peerRef.current.onicecandidate = null;
+      peerRef.current.ontrack = null;
       peerRef.current.close();
       peerRef.current = null;
     }
 
     if (socket) {
+      console.log('Removing socket listeners');
       socket.off('user-joined');
       socket.off('offer');
       socket.off('answer');
@@ -59,42 +82,173 @@ const Call = () => {
     navigate('/');
   };
 
-  useEffect(() => {
-    if (!roomId || !socket) return;
+  const setupWebRTC = async (stream) => {
+    try {
+      console.log('Setting up WebRTC connection');
+      
+      const peerConnection = new RTCPeerConnection({
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' },
+          { urls: 'stun:stun2.l.google.com:19302' }
+        ]
+      });
+      peerRef.current = peerConnection;
 
-    navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-      .then((stream) => {
-        setLocalStream(stream);
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = stream;
+      peerConnection.oniceconnectionstatechange = () => {
+        console.log('ICE connection state:', peerConnection.iceConnectionState);
+        setConnectionStatus(peerConnection.iceConnectionState);
+        if (peerConnection.iceConnectionState === 'disconnected' || 
+            peerConnection.iceConnectionState === 'failed') {
+          console.log('Connection failed or disconnected');
         }
-        setupWebRTC(stream);
-      })
-      .catch((err) => {
-        console.error('Error accessing media devices.', err);
+      };
+
+      peerConnection.onicecandidateerror = (event) => {
+        console.error('ICE candidate error:', event);
+      };
+
+      peerConnection.ontrack = (event) => {
+        console.log('Received remote track:', event.track.kind);
+        if (event.streams && event.streams[0]) {
+          console.log('Setting remote stream with tracks:', event.streams[0].getTracks());
+          setRemoteStream(event.streams[0]);
+          if (remoteVideoRef.current) {
+            remoteVideoRef.current.srcObject = event.streams[0];
+            remoteVideoRef.current.play().catch(e => console.error('Remote video play error:', e));
+          }
+        }
+      };
+
+      stream.getTracks().forEach((track) => {
+        console.log(`Adding local ${track.kind} track to peer connection`);
+        peerConnection.addTrack(track, stream);
       });
 
-    socket.on('user-joined', async ({ socketId }) => {
-      console.log('User joined, creating offer to:', socketId);
-      await createOffer(socketId);
-    });
+      peerConnection.onicecandidate = (event) => {
+        if (event.candidate) {
+          console.log('Sending ICE candidate');
+          socket.emit('ice-candidate', {
+            candidate: event.candidate,
+            roomId,
+          });
+        } else {
+          console.log('All ICE candidates sent');
+        }
+      };
 
-    socket.on('offer', async ({ offer, from }) => {
-      console.log('Received offer from', from);
-      await createAnswer(offer, from);
-    });
+      console.log('WebRTC setup complete');
+      logPeerConnectionState();
+    } catch (error) {
+      console.error('Error setting up WebRTC:', error);
+    }
+  };
 
-    socket.on('answer', async ({ answer }) => {
-      console.log('Received answer');
-      await peerRef.current.setRemoteDescription(new RTCSessionDescription(answer));
-    });
-
-    socket.on('ice-candidate', async ({ candidate }) => {
-      console.log('Received ICE candidate');
-      if (peerRef.current) {
-        await peerRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+  const createOffer = async (targetSocketId) => {
+    try {
+      if (!peerRef.current) {
+        console.warn('PeerConnection not initialized');
+        return;
       }
-    });
+
+      console.log('Creating offer for:', targetSocketId);
+      const offer = await peerRef.current.createOffer();
+      await peerRef.current.setLocalDescription(offer);
+      console.log('Local description set with offer');
+
+      socket.emit('offer', {
+        offer,
+        to: targetSocketId,
+        roomId,
+      });
+    } catch (error) {
+      console.error('Error creating offer:', error);
+    }
+  };
+
+  const createAnswer = async (offer, from) => {
+    try {
+      if (!peerRef.current) {
+        console.warn('PeerConnection not initialized');
+        return;
+      }
+
+      console.log('Creating answer for offer from:', from);
+      await peerRef.current.setRemoteDescription(new RTCSessionDescription(offer));
+      const answer = await peerRef.current.createAnswer();
+      await peerRef.current.setLocalDescription(answer);
+      console.log('Local description set with answer');
+
+      socket.emit('answer', {
+        answer,
+        to: from,
+        roomId,
+      });
+    } catch (error) {
+      console.error('Error creating answer:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (!roomId || !socket) {
+      console.warn('Missing roomId or socket');
+      return;
+    }
+
+    const initializeCall = async () => {
+      try {
+        console.log('Initializing call for room:', roomId);
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          video: true, 
+          audio: true 
+        });
+        
+        console.log('Got local media stream');
+        setLocalStream(stream);
+        
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = stream;
+          localVideoRef.current.play().catch(e => console.error('Local video play error:', e));
+        }
+
+        await setupWebRTC(stream);
+
+        // Set up socket listeners
+        socket.on('user-joined', async ({ socketId }) => {
+          console.log('User joined, creating offer to:', socketId);
+          await createOffer(socketId);
+        });
+
+        socket.on('offer', async ({ offer, from }) => {
+          console.log('Received offer from', from);
+          await createAnswer(offer, from);
+        });
+
+        socket.on('answer', async ({ answer }) => {
+          console.log('Received answer');
+          await peerRef.current.setRemoteDescription(new RTCSessionDescription(answer));
+          logPeerConnectionState();
+        });
+
+        socket.on('ice-candidate', async ({ candidate }) => {
+          console.log('Received ICE candidate');
+          try {
+            await peerRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+            logPeerConnectionState();
+          } catch (error) {
+            console.error('Error adding ICE candidate:', error);
+          }
+        });
+
+      } catch (error) {
+        console.error('Error initializing call:', error);
+        if (error.name === 'NotAllowedError') {
+          alert('Please allow camera and microphone access to use this feature');
+        }
+      }
+    };
+
+    initializeCall();
 
     return () => {
       cleanupResources();
@@ -103,7 +257,7 @@ const Call = () => {
 
   useEffect(() => {
     if (username) {
-      setletter(username.charAt(0).toUpperCase());
+      setLetter(username.charAt(0).toUpperCase());
     }
   }, [username]);
 
@@ -120,56 +274,12 @@ const Call = () => {
     };
   }, []);
 
-  const setupWebRTC = (stream) => {
-    peerRef.current = new RTCPeerConnection({
-      iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' }
-      ]
-    });
-
-    peerRef.current.ontrack = (event) => {
-      console.log('Receiving remote stream');
-      setRemoteStream(event.streams[0]);
-      if (remoteVideoRef.current) {
-        remoteVideoRef.current.srcObject = event.streams[0];
-      }
-    };
-
-    stream.getTracks().forEach((track) => {
-      peerRef.current.addTrack(track, stream);
-    });
-
-    peerRef.current.onicecandidate = (event) => {
-      if (event.candidate) {
-        socket.emit('ice-candidate', {
-          candidate: event.candidate,
-          roomId,
-        });
-      }
-    };
-  };
-
-  const createOffer = async (targetSocketId) => {
-    const offer = await peerRef.current.createOffer();
-    await peerRef.current.setLocalDescription(offer);
-    socket.emit('offer', { offer, to: targetSocketId, roomId });
-  };
-
-  const createAnswer = async (offer, from) => {
-    if (!peerRef.current) {
-      console.warn("PeerConnection not initialized. Cannot create answer.");
-      return;
-    }
-    await peerRef.current.setRemoteDescription(new RTCSessionDescription(offer));
-    const answer = await peerRef.current.createAnswer();
-    await peerRef.current.setLocalDescription(answer);
-    socket.emit('answer', { answer, to: from, roomId });
-  };
-
   const toggleMute = () => {
     if (localStream) {
-      localStream.getAudioTracks().forEach(track => {
+      const audioTracks = localStream.getAudioTracks();
+      audioTracks.forEach(track => {
         track.enabled = !track.enabled;
+        console.log(`Audio track ${track.id} enabled: ${track.enabled}`);
       });
       setIsMuted(!isMuted);
     }
@@ -177,20 +287,45 @@ const Call = () => {
 
   const toggleVideo = () => {
     if (localStream) {
-      localStream.getVideoTracks().forEach(track => {
+      const videoTracks = localStream.getVideoTracks();
+      videoTracks.forEach(track => {
         track.enabled = !track.enabled;
+        console.log(`Video track ${track.id} enabled: ${track.enabled}`);
       });
       setIsVideoOff(!isVideoOff);
     }
   };
 
+  const toggleScreenShare = async () => {
+    try {
+      if (localStream?.getVideoTracks()[0]?.readyState === 'live') {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        setLocalStream(stream);
+        localVideoRef.current.srcObject = stream;
+      } else {
+        const screenStream = await navigator.mediaDevices.getDisplayMedia({ 
+          video: true,
+          audio: true 
+        });
+        setLocalStream(screenStream);
+        localVideoRef.current.srcObject = screenStream;
+      }
+    } catch (error) {
+      console.error('Error toggling screen share:', error);
+    }
+  };
+
   return (
     <div className="flex flex-col items-center justify-between w-full relative h-screen bg-background text-white p-4 font-plus">
-      {isChatopen &&(<div className='absolute left-2 top-2 z-50 flex items-center py-2'>
-        <Chat roomId={roomId}/>
-      </div>)}
+      {isChatOpen && (
+        <div className='absolute left-2 top-2 z-50 flex items-center py-2'>
+          <Chat roomId={roomId} />
+        </div>
+      )}
+
       <div className="w-full text-center py-2">
         <h2 className="text-sm font-semibold">Room ID: {roomId}</h2>
+        <p className="text-xs text-gray-400">Status: {connectionStatus}</p>
         {!remoteStream && (
           <div className="mt-4 text-gray-300 flex items-center justify-center gap-2">
             <User className="w-5 h-5" />
@@ -252,17 +387,27 @@ const Call = () => {
         </Button>
 
         <Button
+          onClick={toggleScreenShare}
+          className="p-3 rounded-full bg-gray-700 hover:bg-opacity-80 transition-all"
+          title="Share screen"
+        >
+          <ScreenShare className="h-6 w-6" />
+        </Button>
+
+        <Button
+          onClick={() => setIsChatOpen(!isChatOpen)}
+          className={`p-3 rounded-full ${isChatOpen ? 'bg-blue-500' : 'bg-gray-700'} hover:bg-opacity-80 transition-all`}
+          title="Toggle chat"
+        >
+          <MessageSquareText className="h-6 w-6" />
+        </Button>
+
+        <Button
           onClick={endCall}
           className="p-3 rounded-full bg-red-600 hover:bg-red-700 transition-all"
           title="End call"
         >
           <PhoneOff className="h-6 w-6" />
-        </Button>
-        <Button className='p-3 rounded-full bg-'>
-        <ScreenShare/>
-        </Button>
-        <Button className='p-3 rounded-full bg-' onClick={()=>setisChatopen(!isChatopen)}>
-        <MessageSquareText/>
         </Button>
       </div>
     </div>
