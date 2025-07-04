@@ -1,3 +1,5 @@
 import { io } from "socket.io-client";
-const socket = io("http://localhost:3000", { withCredentials: true });
+const BASE_URL = import.meta.env.VITE_BASE_URL;
+
+const socket = io(BASE_URL, { withCredentials: true });
 export default socket;
