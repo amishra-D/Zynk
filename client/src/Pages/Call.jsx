@@ -141,32 +141,40 @@ const Call = () => {
       };
 
       // Enhanced track event handler
-      peerConnection.ontrack = (event) => {
-        console.log('Received track event:', event);
-        if (event.streams && event.streams.length > 0) {
-          console.log('Remote stream received with tracks:', 
-            event.streams[0].getTracks().map(t => t.kind));
-          
-          // Create a new stream to avoid reference issues
-          const newStream = new MediaStream();
-          event.streams[0].getTracks().forEach(track => {
-            newStream.addTrack(track);
-          });
-          
-          setRemoteStream(newStream);
-          
-          if (remoteVideoRef.current) {
-            remoteVideoRef.current.srcObject = newStream;
-            remoteVideoRef.current.onloadedmetadata = () => {
-              console.log('Remote video metadata loaded');
-              remoteVideoRef.current.play().catch(e => {
-                console.error('Remote video play failed:', e);
-              });
-            };
-          }
-        }
-      };
-
+     peerConnection.ontrack = (event) => {
+  console.log('Received track event:', event);
+  if (event.streams && event.streams.length > 0) {
+    console.log('Remote stream received with tracks:', 
+      event.streams[0].getTracks().map(t => `${t.kind} (${t.readyState})`));
+    
+    // Create a new stream to avoid reference issues
+    const newStream = new MediaStream();
+    event.streams[0].getTracks().forEach(track => {
+      console.log(`Adding ${track.kind} track to new stream`);
+      newStream.addTrack(track);
+    });
+    
+    setRemoteStream(newStream);
+    
+    if (remoteVideoRef.current) {
+      console.log('Assigning stream to video element');
+      remoteVideoRef.current.srcObject = newStream;
+      
+      // Force play the video
+      const playPromise = remoteVideoRef.current.play();
+      
+      if (playPromise !== undefined) {
+        playPromise.catch(e => {
+          console.error('Video play failed:', e);
+          // Try again after a short delay
+          setTimeout(() => {
+            remoteVideoRef.current.play().catch(e => console.error('Retry failed:', e));
+          }, 500);
+        });
+      }
+    }
+  }
+};
       // Add local tracks with logging
       stream.getTracks().forEach((track) => {
         console.log(`Adding local ${track.kind} track to peer connection`);
@@ -277,9 +285,9 @@ const Call = () => {
         console.log('Initializing call for room:', roomId);
         const stream = await navigator.mediaDevices.getUserMedia({ 
           video: {
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-            frameRate: { ideal: 30 }
+  width: { ideal: 640 },
+  height: { ideal: 360 },
+  frameRate: { ideal: 30 }
           }, 
           audio: true 
         });
@@ -294,7 +302,6 @@ const Call = () => {
 
         await setupWebRTC(stream);
 
-        // Set up socket listeners
         socket.on('user-joined', async ({ socketId }) => {
           console.log('User joined, creating offer to:', socketId);
           await createOffer(socketId);
@@ -448,33 +455,36 @@ const Call = () => {
       </div>
 
       <div className="relative w-full h-full max-w-6xl mx-auto">
-        {remoteStream ? (
-          <div className="relative w-full h-full">
-            <video
-              ref={remoteVideoRef}
-              autoPlay
-              playsInline
-              className="w-full h-full object-cover rounded-lg bg-black"
-              onError={(e) => console.error('Remote video error:', e)}
-            />
-            {remoteVideoRef.current?.readyState === HTMLMediaElement.HAVE_NOTHING && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-70 rounded-lg">
-                <div className="text-white text-center">
-                  <p>Waiting for video stream...</p>
-                  <p className="text-sm">Connection: {connectionStatus}</p>
-                </div>
-              </div>
-            )}
+  {remoteStream ? (
+    <div className="relative w-full h-full">
+      <video
+        ref={remoteVideoRef}
+        autoPlay
+        playsInline
+        muted={false}
+        className="w-full h-full object-cover rounded-lg bg-black"
+        onCanPlay={() => console.log('Remote video can play')}
+        onPlaying={() => console.log('Remote video started playing')}
+        onError={(e) => console.error('Remote video error:', e)}
+      />
+      {remoteVideoRef.current?.readyState < HTMLMediaElement.HAVE_ENOUGH_DATA && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-70 rounded-lg">
+          <div className="text-white text-center">
+            <p>Waiting for video stream...</p>
+            <p className="text-sm">Connection: {connectionStatus}</p>
+            <p className="text-xs">Tracks: {remoteStream?.getTracks().length || 0}</p>
           </div>
-        ) : (
-          <div className="w-full h-full bg-neutral-800 rounded-lg flex items-center justify-center">
-            <div className="text-2xl text-gray-400 flex items-center gap-2">
-              <VideoOff className="w-8 h-8" />
-              <span>No remote video available</span>
-            </div>
-          </div>
-        )}
-
+        </div>
+      )}
+    </div>
+  ) : (
+    <div className="w-full h-full bg-neutral-800 rounded-lg flex items-center justify-center">
+      <div className="text-2xl text-gray-400 flex items-center gap-2">
+        <VideoOff className="w-8 h-8" />
+        <span>No remote video available</span>
+      </div>
+    </div>
+  )}
         <div className={`absolute bottom-4 right-4 ${isVideoOff ? 'bg-gray-700' : ''}`}>
           <video
             ref={localVideoRef}
