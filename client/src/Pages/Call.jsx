@@ -23,10 +23,11 @@ const Call = () => {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [letter, setLetter] = useState('Z');
   const [connectionStatus, setConnectionStatus] = useState('Connecting...');
+  const [isScreenSharing, setIsScreenSharing] = useState(false);
   const peerRef = useRef(null);
   const cleanupComplete = useRef(false);
+  const originalStreamRef = useRef(null);
 
-  // Enhanced debugging function
   const debugConnection = () => {
     if (!peerRef.current) {
       console.log('No active peer connection');
@@ -38,34 +39,35 @@ const Call = () => {
     console.log('Signaling State:', peerRef.current.signalingState);
     console.log('Connection State:', peerRef.current.connectionState);
     
-    console.log('Local Tracks:');
-    peerRef.current.getSenders().forEach(sender => {
-      console.log(`- ${sender.track?.kind} track:`, {
-        id: sender.track?.id,
-        enabled: sender.track?.enabled,
-        readyState: sender.track?.readyState,
-        muted: sender.track?.muted
-      });
-    });
-    
-    console.log('Remote Tracks:');
-    peerRef.current.getReceivers().forEach(receiver => {
-      console.log(`- ${receiver.track?.kind} track:`, {
-        id: receiver.track?.id,
-        enabled: receiver.track?.enabled,
-        readyState: receiver.track?.readyState,
-        muted: receiver.track?.muted
+    console.log('Transceivers:');
+    peerRef.current.getTransceivers().forEach((transceiver, index) => {
+      console.log(`Transceiver ${index}:`, {
+        direction: transceiver.direction,
+        currentDirection: transceiver.currentDirection,
+        sender: transceiver.sender?.track ? {
+          kind: transceiver.sender.track.kind,
+          enabled: transceiver.sender.track.enabled,
+          readyState: transceiver.sender.track.readyState
+        } : null,
+        receiver: transceiver.receiver?.track ? {
+          kind: transceiver.receiver.track.kind,
+          enabled: transceiver.receiver.track.enabled,
+          readyState: transceiver.receiver.track.readyState
+        } : null
       });
     });
     
     console.log('Remote Stream:', remoteStream?.id);
+    console.log('Remote Stream Tracks:', remoteStream?.getTracks().map(t => `${t.kind} (${t.readyState})`));
+    
     if (remoteVideoRef.current) {
       console.log('Video Element:', {
         readyState: remoteVideoRef.current.readyState,
         videoWidth: remoteVideoRef.current.videoWidth,
         videoHeight: remoteVideoRef.current.videoHeight,
+        paused: remoteVideoRef.current.paused,
         error: remoteVideoRef.current.error,
-        srcObject: remoteVideoRef.current.srcObject
+        srcObject: remoteVideoRef.current.srcObject?.id
       });
     }
   };
@@ -85,10 +87,20 @@ const Call = () => {
       setLocalStream(null);
     }
 
+    if (originalStreamRef.current) {
+      console.log('Stopping original stream tracks');
+      originalStreamRef.current.getTracks().forEach(track => {
+        track.stop();
+      });
+      originalStreamRef.current = null;
+    }
+
     if (peerRef.current) {
       console.log('Closing peer connection');
       peerRef.current.onicecandidate = null;
       peerRef.current.ontrack = null;
+      peerRef.current.oniceconnectionstatechange = null;
+      peerRef.current.onicecandidateerror = null;
       peerRef.current.close();
       peerRef.current = null;
     }
@@ -108,6 +120,8 @@ const Call = () => {
     if (remoteVideoRef.current) {
       remoteVideoRef.current.srcObject = null;
     }
+
+    setRemoteStream(null);
   };
 
   const endCall = () => {
@@ -133,15 +147,13 @@ const Call = () => {
         console.log('ICE connection state:', state);
         setConnectionStatus(state);
         
-        if (state === 'disconnected' || state === 'failed') {
+        if (state === 'connected' || state === 'completed') {
+          console.log('WebRTC connection established successfully');
+        } else if (state === 'disconnected' || state === 'failed') {
           console.log('Connection failed or disconnected');
-          if (state === 'disconnected' && !cleanupComplete.current) {
-            console.log('Attempting to reconnect...');
-            setTimeout(() => {
-              if (peerConnection.iceConnectionState === 'disconnected') {
-                createOffer(socket.id).catch(console.error);
-              }
-            }, 2000);
+          if (state === 'failed') {
+            console.log('Connection failed, attempting to restart ICE');
+            peerConnection.restartIce();
           }
         }
       };
@@ -150,42 +162,38 @@ const Call = () => {
         console.error('ICE candidate error:', event);
       };
 
-      // Enhanced track event handler
       peerConnection.ontrack = (event) => {
         console.log('Received track event:', event);
-        if (event.streams && event.streams.length > 0) {
-          console.log('Remote stream received with tracks:', 
-            event.streams[0].getTracks().map(t => `${t.kind} (${t.readyState})`));
+        console.log('Event streams:', event.streams);
+        console.log('Event track:', event.track);
+        
+        const [incomingStream] = event.streams;
+        
+        if (incomingStream) {
+          console.log('Setting remote stream:', incomingStream.id);
+          console.log('Remote stream tracks:', incomingStream.getTracks().map(t => `${t.kind} (${t.readyState})`));
           
-          // Create a new stream to avoid reference issues
-          const newStream = new MediaStream();
-          event.streams[0].getTracks().forEach(track => {
-            console.log(`Adding ${track.kind} track to new stream`);
-            newStream.addTrack(track);
-          });
-          
-          setRemoteStream(newStream);
+          setRemoteStream(incomingStream);
           
           if (remoteVideoRef.current) {
-            console.log('Assigning stream to video element');
-            remoteVideoRef.current.srcObject = newStream;
+            console.log('Updating remote video element');
+            remoteVideoRef.current.srcObject = incomingStream;
             
-            // Force play the video
-            const playPromise = remoteVideoRef.current.play();
-            
-            if (playPromise !== undefined) {
-              playPromise.catch(e => {
-                console.error('Video play failed:', e);
-                setTimeout(() => {
-                  remoteVideoRef.current.play().catch(e => console.error('Retry failed:', e));
-                }, 500);
+            remoteVideoRef.current.play()
+              .then(() => {
+                console.log('Remote video playback started successfully');
+                console.log('Video dimensions:', {
+                  width: remoteVideoRef.current.videoWidth,
+                  height: remoteVideoRef.current.videoHeight
+                });
+              })
+              .catch(error => {
+                console.error('Remote video play error:', error);
               });
-            }
           }
         }
       };
 
-      // Add local tracks with logging
       stream.getTracks().forEach((track) => {
         console.log(`Adding local ${track.kind} track to peer connection`);
         peerConnection.addTrack(track, stream);
@@ -223,42 +231,17 @@ const Call = () => {
         offerToReceiveVideo: true
       });
       
-      // Modify SDP to prefer certain codecs
-      const modifiedOffer = {
-        ...offer,
-        sdp: preferCodec(offer.sdp, 'H264')
-      };
-      
-      await peerRef.current.setLocalDescription(modifiedOffer);
+      await peerRef.current.setLocalDescription(offer);
       console.log('Local description set with offer');
 
       socket.emit('offer', {
-        offer: modifiedOffer,
+        offer,
         to: targetSocketId,
         roomId,
       });
     } catch (error) {
       console.error('Error creating offer:', error);
     }
-  };
-
-  // Helper function to prefer specific codecs
-  const preferCodec = (sdp, codec) => {
-    const lines = sdp.split('\n');
-    const mLineIndex = lines.findIndex(line => line.startsWith('m=video'));
-    
-    if (mLineIndex === -1) return sdp;
-    
-    const codecLines = lines.filter(line => line.includes('a=rtpmap') && line.includes(codec));
-    if (codecLines.length === 0) return sdp;
-    
-    const payloadType = codecLines[0].split(':')[1].split(' ')[0];
-    lines[mLineIndex] = lines[mLineIndex].replace(
-      /^m=video.*$/,
-      `m=video 9 UDP/TLS/RTP/SAVPF ${payloadType}`
-    );
-    
-    return lines.join('\n');
   };
 
   const createAnswer = async (offer, from) => {
@@ -285,6 +268,49 @@ const Call = () => {
   };
 
   useEffect(() => {
+    if (remoteStream && remoteVideoRef.current) {
+      console.log('Updating video element with remote stream');
+      remoteVideoRef.current.srcObject = remoteStream;
+      
+      const videoElement = remoteVideoRef.current;
+      
+      const handleLoadedMetadata = () => {
+        console.log('Remote video metadata loaded:', {
+          videoWidth: videoElement.videoWidth,
+          videoHeight: videoElement.videoHeight,
+          duration: videoElement.duration
+        });
+      };
+      
+      const handleCanPlay = () => {
+        console.log('Remote video can play');
+      };
+      
+      const handlePlaying = () => {
+        console.log('Remote video started playing');
+      };
+      
+      const handleError = (e) => {
+        console.error('Remote video error:', e);
+      };
+      
+      videoElement.addEventListener('loadedmetadata', handleLoadedMetadata);
+      videoElement.addEventListener('canplay', handleCanPlay);
+      videoElement.addEventListener('playing', handlePlaying);
+      videoElement.addEventListener('error', handleError);
+      
+      videoElement.play().catch(console.error);
+      
+      return () => {
+        videoElement.removeEventListener('loadedmetadata', handleLoadedMetadata);
+        videoElement.removeEventListener('canplay', handleCanPlay);
+        videoElement.removeEventListener('playing', handlePlaying);
+        videoElement.removeEventListener('error', handleError);
+      };
+    }
+  }, [remoteStream]);
+
+  useEffect(() => {
     if (!roomId || !socket) {
       console.warn('Missing roomId or socket');
       return;
@@ -295,15 +321,20 @@ const Call = () => {
         console.log('Initializing call for room:', roomId);
         const stream = await navigator.mediaDevices.getUserMedia({ 
           video: {
-            width: { ideal: 640 },
-            height: { ideal: 360 },
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
             frameRate: { ideal: 30 }
           }, 
-          audio: true 
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          }
         });
         
         console.log('Got local media stream');
         setLocalStream(stream);
+        originalStreamRef.current = stream;
         
         if (localVideoRef.current) {
           localVideoRef.current.srcObject = stream;
@@ -311,6 +342,8 @@ const Call = () => {
         }
 
         await setupWebRTC(stream);
+
+        socket.emit('join-call', { roomId });
 
         socket.on('user-joined', async ({ socketId }) => {
           console.log('User joined, creating offer to:', socketId);
@@ -324,8 +357,13 @@ const Call = () => {
 
         socket.on('answer', async ({ answer }) => {
           console.log('Received answer');
-          await peerRef.current.setRemoteDescription(new RTCSessionDescription(answer));
-          debugConnection();
+          try {
+            await peerRef.current.setRemoteDescription(new RTCSessionDescription(answer));
+            console.log('Remote description set successfully');
+            debugConnection();
+          } catch (error) {
+            console.error('Error setting remote description:', error);
+          }
         });
 
         socket.on('ice-candidate', async ({ candidate }) => {
@@ -342,6 +380,8 @@ const Call = () => {
         console.error('Error initializing call:', error);
         if (error.name === 'NotAllowedError') {
           alert('Please allow camera and microphone access to use this feature');
+        } else if (error.name === 'NotFoundError') {
+          alert('Camera or microphone not found. Please check your devices.');
         } else {
           alert('Failed to initialize call. Please try again.');
         }
@@ -354,29 +394,6 @@ const Call = () => {
       cleanupResources();
     };
   }, [roomId, socket]);
-
-  // Track remote stream changes
-  useEffect(() => {
-    if (remoteStream) {
-      const tracks = remoteStream.getTracks();
-      console.log('Remote stream tracks:', tracks.map(t => `${t.kind} (${t.readyState})`));
-
-      const onTrackEnded = () => {
-        console.log('Remote track ended');
-        debugConnection();
-      };
-
-      tracks.forEach(track => {
-        track.addEventListener('ended', onTrackEnded);
-      });
-
-      return () => {
-        tracks.forEach(track => {
-          track.removeEventListener('ended', onTrackEnded);
-        });
-      };
-    }
-  }, [remoteStream]);
 
   useEffect(() => {
     if (username) {
@@ -421,32 +438,116 @@ const Call = () => {
 
   const toggleScreenShare = async () => {
     try {
-      if (localStream?.getVideoTracks()[0]?.readyState === 'live') {
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-          video: {
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-            frameRate: { ideal: 30 }
-          }, 
-          audio: true 
-        });
-        setLocalStream(stream);
-        localVideoRef.current.srcObject = stream;
-      } else {
+      if (!isScreenSharing) {
         const screenStream = await navigator.mediaDevices.getDisplayMedia({ 
           video: {
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
             frameRate: { ideal: 30 }
           },
           audio: true 
         });
+        
+        const videoTrack = screenStream.getVideoTracks()[0];
+        if (peerRef.current) {
+          const sender = peerRef.current.getSenders().find(s => 
+            s.track && s.track.kind === 'video'
+          );
+          if (sender) {
+            await sender.replaceTrack(videoTrack);
+          }
+        }
+        
         setLocalStream(screenStream);
-        localVideoRef.current.srcObject = screenStream;
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = screenStream;
+        }
+        setIsScreenSharing(true);
+        
+        videoTrack.onended = () => {
+          toggleScreenShare();
+        };
+        
+      } else {
+        if (originalStreamRef.current) {
+          const videoTrack = originalStreamRef.current.getVideoTracks()[0];
+          if (peerRef.current) {
+            const sender = peerRef.current.getSenders().find(s => 
+              s.track && s.track.kind === 'video'
+            );
+            if (sender) {
+              await sender.replaceTrack(videoTrack);
+            }
+          }
+          
+          setLocalStream(originalStreamRef.current);
+          if (localVideoRef.current) {
+            localVideoRef.current.srcObject = originalStreamRef.current;
+          }
+        }
+        setIsScreenSharing(false);
       }
     } catch (error) {
       console.error('Error toggling screen share:', error);
+      if (error.name === 'NotAllowedError') {
+        alert('Screen sharing permission denied');
+      }
     }
+  };
+
+  const forceVideoRefresh = () => {
+    if (remoteStream && remoteVideoRef.current) {
+      console.log('Forcing video refresh');
+      remoteVideoRef.current.srcObject = remoteStream;
+      remoteVideoRef.current.play().catch(console.error);
+    }
+    debugConnection();
+  };
+
+  const renderRemoteVideo = () => {
+    const hasVideoTrack = peerRef.current?.getTransceivers().some(
+      t => t.receiver?.track?.kind === 'video' && t.receiver.track.readyState === 'live'
+    );
+    
+    if (hasVideoTrack || remoteStream) {
+      return (
+        <div className="relative w-full h-full">
+          <video
+            ref={remoteVideoRef}
+            autoPlay
+            playsInline
+            className="w-full h-full object-cover rounded-lg bg-black"
+            onLoadedMetadata={() => console.log('Remote video metadata loaded')}
+            onCanPlay={() => console.log('Remote video can play')}
+            onPlaying={() => console.log('Remote video started playing')}
+            onError={(e) => console.error('Remote video error:', e)}
+          />
+          {(!remoteStream || (remoteVideoRef.current && remoteVideoRef.current.readyState < HTMLMediaElement.HAVE_ENOUGH_DATA)) && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-70 rounded-lg">
+              <div className="text-white text-center">
+                <p>Waiting for video data...</p>
+                <p className="text-sm">Connection: {connectionStatus}</p>
+                <button 
+                  onClick={forceVideoRefresh}
+                  className="mt-2 px-4 py-2 bg-blue-500 rounded text-sm hover:bg-blue-600"
+                >
+                  Refresh Video
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+    
+    return (
+      <div className="w-full h-full bg-neutral-800 rounded-lg flex items-center justify-center">
+        <div className="text-2xl text-gray-400 flex items-center gap-2">
+          <VideoOff className="w-8 h-8" />
+          <span>No remote video available</span>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -469,36 +570,8 @@ const Call = () => {
       </div>
 
       <div className="relative w-full h-full max-w-6xl mx-auto">
-        {remoteStream ? (
-          <div className="relative w-full h-full">
-            <video
-              ref={remoteVideoRef}
-              autoPlay
-              playsInline
-              className="w-full h-full object-cover rounded-lg bg-black"
-              onCanPlay={() => console.log('Remote video can play')}
-              onPlaying={() => console.log('Remote video started playing')}
-              onError={(e) => console.error('Remote video error:', e)}
-            />
-            {remoteVideoRef.current?.readyState < HTMLMediaElement.HAVE_ENOUGH_DATA && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-70 rounded-lg">
-                <div className="text-white text-center">
-                  <p>Waiting for video stream...</p>
-                  <p className="text-sm">Connection: {connectionStatus}</p>
-                  <p className="text-xs">Tracks: {remoteStream?.getTracks().length || 0}</p>
-                </div>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="w-full h-full bg-neutral-800 rounded-lg flex items-center justify-center">
-            <div className="text-2xl text-gray-400 flex items-center gap-2">
-              <VideoOff className="w-8 h-8" />
-              <span>No remote video available</span>
-            </div>
-          </div>
-        )}
-
+        {renderRemoteVideo()}
+        
         <div className={`absolute bottom-4 right-4 ${isVideoOff ? 'bg-gray-700' : ''}`}>
           <video
             ref={localVideoRef}
@@ -536,8 +609,8 @@ const Call = () => {
 
         <Button
           onClick={toggleScreenShare}
-          className="p-3 rounded-full bg-gray-700 hover:bg-opacity-80 transition-all"
-          title="Share screen"
+          className={`p-3 rounded-full ${isScreenSharing ? 'bg-blue-500' : 'bg-gray-700'} hover:bg-opacity-80 transition-all`}
+          title={isScreenSharing ? "Stop screen share" : "Share screen"}
         >
           <ScreenShare className="h-6 w-6" />
         </Button>
@@ -556,6 +629,14 @@ const Call = () => {
           title="Debug Connection"
         >
           Debug
+        </Button>
+
+        <Button
+          onClick={forceVideoRefresh}
+          className="p-3 rounded-full bg-green-500 hover:bg-opacity-80 transition-all"
+          title="Force Video Refresh"
+        >
+          Refresh
         </Button>
 
         <Button
