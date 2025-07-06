@@ -8,6 +8,10 @@ import Protected from './Pages/Protected'
 import { useDispatch, useSelector } from 'react-redux';
 import { Getmyuserthunk } from './Features/auth/authSlice';
 import { useLocation } from 'react-router-dom';
+import Features from './Pages/Features'
+import Aboutus from './Pages/Aboutus'
+import Contactus from './Pages/Contactus'
+import Nav from './layouts/Nav'
 
 const App = () => {
   const initialized = useSelector(state => state.auth.initialized);
@@ -22,6 +26,7 @@ const App = () => {
   return (
     <div>
           <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
+            <Nav/>
 <Routes>
   <Route path='/' element={<Home/>}/>
   <Route path='/call' element={
@@ -31,6 +36,11 @@ const App = () => {
     }/>
     <Route path='/auth' element={<Auth/>}/>
     <Route path='/protected' element={<Protected><Auth></Auth></Protected>}/>
+        <Route path='/features' element={<Features/>}/>
+            <Route path='/aboutus' element={<Aboutus/>}/>
+                <Route path='/contactus' element={<Contactus/>}/>
+
+
 </Routes>
 </ThemeProvider>
     </div>

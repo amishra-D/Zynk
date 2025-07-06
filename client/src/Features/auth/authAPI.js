@@ -45,4 +45,12 @@ export const updateuserAPI = async (data) => {
     throw error.response?.data || { message: 'Update failed' };
   }
 };
+export const sendOTPAPI = async (data) => {
+  try {
+    const response = await api.post('/api/auth/sendotp', data);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || { message: 'OTP sending failed' };
+  }
+};
 

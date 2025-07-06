@@ -1,5 +1,12 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import { getmyuserAPI, loginAPI, logoutAPI, signupAPI, updateuserAPI } from "./authAPI";
+import {
+  getmyuserAPI,
+  loginAPI,
+  logoutAPI,
+  signupAPI,
+  updateuserAPI,
+  sendOTPAPI,
+} from "./authAPI";
 
 export const Loginthunk = createAsyncThunk('/auth/login', async (data, thunkAPI) => {
   try {
@@ -10,6 +17,7 @@ export const Loginthunk = createAsyncThunk('/auth/login', async (data, thunkAPI)
 });
 
 export const Signupthunk = createAsyncThunk('/auth/signup', async (data, thunkAPI) => {
+  console.log("email",data);
   try {
     return await signupAPI(data);
   } catch (err) {
@@ -32,14 +40,22 @@ export const Getmyuserthunk = createAsyncThunk('/auth/getmyuser', async (_, thun
     return thunkAPI.rejectWithValue(err.message || 'Unauthorized');
   }
 });
+
 export const Updateuserthunk = createAsyncThunk('/profile/updateuser', async (data, thunkAPI) => {
   try {
     return await updateuserAPI(data);
   } catch (err) {
-    return thunkAPI.rejectWithValue(err.message || 'Not updated');
+    return thunkAPI.rejectWithValue(err.message || 'Update failed');
   }
 });
 
+export const SendOTPThunk = createAsyncThunk('/auth/sendotp', async (data, thunkAPI) => {
+  try {
+    return await sendOTPAPI(data);
+  } catch (err) {
+    return thunkAPI.rejectWithValue(err.message || 'OTP send failed');
+  }
+});
 const AuthSlice = createSlice({
   name: 'auth',
   initialState: {
@@ -47,8 +63,18 @@ const AuthSlice = createSlice({
     loading: false,
     error: null,
     initialized: false,
+    otpSent: false,
+    otpError: null,
   },
-  reducers: {},
+  reducers: {
+    setUser: (state, action) => {
+      state.user = action.payload;
+    },
+    clearOTPStatus: (state) => {
+      state.otpSent = false;
+      state.otpError = null;
+    },
+  },
   extraReducers: (builder) => {
     builder
       .addCase(Loginthunk.pending, (state) => {
@@ -98,6 +124,7 @@ const AuthSlice = createSlice({
         state.error = action.payload || 'Unauthorized';
         state.initialized = true;
       })
+
       .addCase(Updateuserthunk.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -108,19 +135,35 @@ const AuthSlice = createSlice({
         state.error = null;
         state.initialized = true;
       })
-     .addCase(Updateuserthunk.rejected, (state, action) => {
-  state.loading = false;
-  state.error = action.payload.user || 'Not updated';
-  state.initialized = true;
-})
-
+      .addCase(Updateuserthunk.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload || 'Update failed';
+        state.initialized = true;
+      })
 
       .addCase(Logoutthunk.fulfilled, (state) => {
         state.user = null;
         state.loading = false;
         state.error = null;
+      })
+
+      .addCase(SendOTPThunk.pending, (state) => {
+        state.loading = true;
+        state.otpSent = false;
+        state.otpError = null;
+      })
+      .addCase(SendOTPThunk.fulfilled, (state, action) => {
+        state.loading = false;
+        state.otpSent = true;
+        state.otpError = null;
+      })
+      .addCase(SendOTPThunk.rejected, (state, action) => {
+        state.loading = false;
+        state.otpSent = false;
+        state.otpError = action.payload || 'OTP sending failed';
       });
-  }
+  },
 });
 
+export const { setUser, clearOTPStatus } = AuthSlice.actions;
 export default AuthSlice.reducer;

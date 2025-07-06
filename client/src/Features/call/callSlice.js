@@ -1,6 +1,5 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
-import { adduserroomAPI, createroomAPI } from './callAPI';
-
+import { adduserroomAPI, createroomAPI, endcallAPI, validateroomAPI } from './callAPI';
 export const createroomthunk = createAsyncThunk(
   '/room/createroom',
   async (data, thunkAPI) => {
@@ -24,9 +23,31 @@ export const addparticipantthunk = createAsyncThunk(
     }
   }
 );
-
+export const validateroomthunk = createAsyncThunk(
+  '/room/validate',
+  async (data, thunkAPI) => {
+    try {
+      const response = await validateroomAPI(data);
+      return response;
+    } catch (err) {
+      return thunkAPI.rejectWithValue(err.response?.data?.message || err.message || 'Room not found');
+    }
+  }
+);
+export const endcallthunk = createAsyncThunk(
+  '/room/endcall',
+  async (data, thunkAPI) => {
+    try {
+      const response = await endcallAPI(data);
+      return response;
+    } catch (err) {
+      return thunkAPI.rejectWithValue(err.response?.data?.message || err.message || 'Call ended failed');
+    }
+  }
+);
 const initialState = {
   callStatus: 'idle',
+  roomvalid: false,
   localStream: null,
   remoteStream: null,
   peerId: null,
@@ -99,7 +120,32 @@ const callSlice = createSlice({
       .addCase(addparticipantthunk.rejected, (state, action) => {
         state.callStatus = 'error';
         state.error = action.payload;
-      });
+      })
+      .addCase(validateroomthunk.pending, (state) => {
+        state.callStatus = 'joining';
+        state.error = null;
+      })
+      .addCase(validateroomthunk.fulfilled, (state) => {
+        state.callStatus = 'joined';
+        state.roomvalid = true;
+      })
+      .addCase(validateroomthunk.rejected, (state, action) => {
+        state.callStatus = 'error';
+        state.error = action.payload;
+        state.roomvalid = false;
+      })
+       .addCase(endcallthunk.pending, (state) => {
+        state.callStatus = 'joined';
+        state.error = null;
+      })
+      .addCase(endcallthunk.fulfilled, (state) => {
+        state.callStatus = 'ended';
+      })
+      .addCase(endcallthunk.rejected, (state, action) => {
+        state.callStatus = 'error';
+        state.error = action.payload;
+        state.callStatus = 'joined';
+      })
   }
 });
 

@@ -10,19 +10,18 @@ export const useMediaStream = () => {
 
   const getMediaStream = useCallback(async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
+      const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           width: { ideal: 1280 },
           height: { ideal: 720 },
           frameRate: { ideal: 30 }
-        }, 
+        },
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true
         }
       });
-      
       setLocalStream(stream);
       originalStreamRef.current = stream;
       return stream;
@@ -55,27 +54,27 @@ export const useMediaStream = () => {
   const toggleScreenShare = useCallback(async (replaceSenderTrack) => {
     try {
       if (!isScreenSharing) {
-        const screenStream = await navigator.mediaDevices.getDisplayMedia({ 
+        const screenStream = await navigator.mediaDevices.getDisplayMedia({
           video: {
             width: { ideal: 1920 },
             height: { ideal: 1080 },
             frameRate: { ideal: 30 }
           },
-          audio: true 
+          audio: true
         });
-        
+
         const videoTrack = screenStream.getVideoTracks()[0];
         if (replaceSenderTrack) {
           await replaceSenderTrack(videoTrack, 'video');
         }
-        
+
         setLocalStream(screenStream);
         setIsScreenSharing(true);
-        
+
         videoTrack.onended = () => {
           toggleScreenShare(replaceSenderTrack);
         };
-        
+
         return screenStream;
       } else {
         if (originalStreamRef.current) {
@@ -83,7 +82,7 @@ export const useMediaStream = () => {
           if (replaceSenderTrack) {
             await replaceSenderTrack(videoTrack, 'video');
           }
-          
+
           setLocalStream(originalStreamRef.current);
           setIsScreenSharing(false);
           return originalStreamRef.current;

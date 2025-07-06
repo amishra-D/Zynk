@@ -10,6 +10,10 @@ const RoomSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: "User"
   }],
+  host:{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User"
+  },
   startedAt: {
     type: Date,
     default: Date.now
