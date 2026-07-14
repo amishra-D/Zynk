@@ -19,7 +19,6 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: server/package-lock.json
 
       - name: Install Dependencies
         working-directory: server
@@ -27,6 +26,13 @@ jobs:
 
       - name: Run Tests
         working-directory: server
+        env:
+          MONGO_URI: ${{ secrets.MONGO_URI }}
+          ACCESS_SECRET_KEY: ${{ secrets.ACCESS_SECRET_KEY }}
+          REFRESH_SECRET_KEY: ${{ secrets.REFRESH_SECRET_KEY }}
+          REDIS_URL: ${{ secrets.REDIS_URL }}
+          EMAIL_USER: ${{ secrets.EMAIL_USER }}
+          EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
         run: npm test
 
       - name: Verify Docker Build
