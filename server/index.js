@@ -1,15 +1,16 @@
+require('dotenv').config();
 const app=require("./app");
 const dbconnect=require('./config/dbconfig.js')
 const redisClient = require('./config/redisconfig.js');
 
 const http=require('http')
 const { Server } = require('socket.io');
-require('dotenv').config();
 dbconnect();
 const server=http.createServer(app);
+const clientUrl = process.env.CLIENT_URL ? process.env.CLIENT_URL.replace(/\/$/, "") : "";
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL,
+    origin: clientUrl,
     methods: ["GET", "POST"],
     credentials: true
   }

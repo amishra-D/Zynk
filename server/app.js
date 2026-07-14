@@ -7,7 +7,8 @@ const profileroutes=require('./routes/Profileroutes')
 const AuthMiddleware=require('./middlewares/Authmiddleware')
 const roomroutes=require('./routes/Roomroutes')
 const app=express();
-app.use(cors({ origin: process.env.CLIENT_URL,credentials: true, methods: ['GET', 'POST','PUT'] }));
+const clientUrl = process.env.CLIENT_URL ? process.env.CLIENT_URL.replace(/\/$/, "") : "";
+app.use(cors({ origin: clientUrl, credentials: true, methods: ['GET', 'POST','PUT'] }));
 
 const cookieParser = require('cookie-parser');
 app.use(cookieParser());
