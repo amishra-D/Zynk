@@ -130,7 +130,6 @@ catch (error) {
 
 
 const signup = async (req, res) => {
-  console.log("api",req.body);
   const validation = signupSchema.safeParse(req.body);
   if (!validation.success) {
   console.error(validation.error.format());
@@ -184,13 +183,14 @@ const signup = async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
-    res.status(200).json({ msg: 'Signup successful' });
+    res.status(201).json({ msg: 'Signup successful' });
   } catch (error) {
     res.status(500).json({ error: 'Signup failed', detail: error.message });
   }
 };
 
 const login = async (req, res) => {
+  try{
   const validation=loginSchema.safeParse(req.body)
   if(!validation.success)
     return res.status(400).json(validation.error);
@@ -200,7 +200,6 @@ const login = async (req, res) => {
   if (!user)
     return res.status(404).send({ message: 'User not found' });
 
-  try {
     const isValidPassword = await argon2.verify(user.password, password);
 
     if (!isValidPassword)

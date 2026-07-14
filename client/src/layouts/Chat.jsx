@@ -75,7 +75,7 @@ useEffect(() => {
   };
 
   return (
-    <div className="flex flex-col border-l bg-muted rounded-xl shadow-inner h-screen max-h-screen">
+    <div className="flex flex-col border-l bg-muted rounded-xl shadow-inner h-screen min-h-screen">
       <div className="flex items-center justify-between p-3 border-b sticky top-0 bg-muted z-10">
         <div className="text-xl font-semibold">Chat</div>
         <button 

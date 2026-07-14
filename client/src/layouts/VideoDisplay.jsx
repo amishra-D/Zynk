@@ -37,6 +37,7 @@ export const RemoteVideoDisplay = ({ remoteStream, connectionStatus }) => {
           ref={remoteVideoRef}
           autoPlay
           playsInline
+          muted={false}
           className="w-full h-full object-cover rounded-lg bg-black"
         />
         {remoteVideoRef.current && remoteVideoRef.current.readyState < HTMLMediaElement.HAVE_ENOUGH_DATA && (

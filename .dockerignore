@@ -1,0 +1,39 @@
+# Dependencies
+node_modules
+
+# Build output
+dist
+build
+
+# VCS
+.git
+.gitignore
+
+# Logs
+npm-debug.log*
+*.log
+
+# OS
+.DS_Store
+
+# Docker
+Dockerfile
+docker-compose*.yml
+
+# Server-only: if this repo is multi-part (client/server), keep image focused
+client/
+
+# Tests & docs
+server/tests/
+server/**/*.test.js
+README.md
+
+# Env files
+.env
+.env.*
+
+# Misc
+*.md
+*.map
+.vscode/
+

@@ -1,0 +1,62 @@
+name: Zynk CI
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  test:
+    name: Test Application
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install Dependencies
+        working-directory: server
+        run: npm ci
+
+      - name: Run Tests
+        working-directory: server
+        run: npm test
+
+      - name: Verify Docker Build
+        working-directory: server
+        run: docker build -t zynk:latest .
+
+  deploy:
+    name: Deploy to EC2
+    needs: test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd ~/Zynk/server
+
+            git pull origin master
+
+            docker build -t zynk:latest .
+
+            docker stop zynk-container || true
+            docker rm zynk-container || true
+
+            docker run -d \
+              --name zynk-container \
+              --restart unless-stopped \
+              -p 5000:5000 \
+              zynk:latest

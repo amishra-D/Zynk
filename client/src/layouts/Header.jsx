@@ -8,7 +8,7 @@ import { useSelector } from 'react-redux';
 const Header = () => {
   const { user } = useSelector((state) => state.auth);
   const navigate = useNavigate();
-  const currentDate = new Date().toString().split(' ').slice(0, 5).join(' ');
+  const currentDate = new Date().toString().split(' ').slice(0, 4).join(' ');
 
   return (
     <div className="w-full flex flex-col sm:flex-row justify-between items-center px-4 py-3 bg-background text-foreground font-plus gap-2 sm:gap-0">

@@ -44,11 +44,9 @@ const validateroom = async (req, res) => {
             return res.status(400).json(validate.error);
         }
         const { roomId } = validate.data;
-console.log('Incoming roomId:', roomId);
 
 const room = await Room.findOne({ roomId });
 
-console.log('Room found:', room);
         if (!room) {
             return res.status(404).json({ message: 'Room not found' });
         }
@@ -59,8 +57,6 @@ console.log('Room found:', room);
 }
 const endcall = async (req, res) => {
     try {
-        console.log("API HIT: /room/endcall");
-console.log("Request body:", req.body);
         const validate = endCallSchema.safeParse(req.body);
         if (!validate.success) {
             return res.status(400).json(validate.error);
